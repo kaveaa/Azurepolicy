@@ -1,0 +1,151 @@
+{
+    "properties": {
+      "displayName": "Deploysqlauditsettings",
+      "policyType": "Custom",
+      "mode": "Indexed",
+      "parameters": {
+        "effect": {
+          "type": "String",
+          "metadata": {
+            "displayName": "Effect",
+            "description": "Enable or disable the execution of the policy"
+          },
+          "allowedValues": [
+            "AuditIfNotExists",
+            "DeployIfNotExists",
+            "Disabled"
+          ],
+          "defaultValue": "AuditIfNotExists"
+        },
+        "setting": {
+          "type": "String",
+          "metadata": {
+            "displayName": "Desired Auditing setting",
+            "description": "Desired auditing setting"
+          },
+          "allowedValues": [
+            "enabled",
+            "disabled"
+          ],
+          "defaultValue": "enabled"
+        }
+      },
+      "policyRule": {
+        "if": {
+          "field": "type",
+          "equals": "Microsoft.Sql/servers"
+        },
+        "then": {
+          "effect": "[parameters('effect')]",
+          "details": {
+            "type": "Microsoft.Sql/servers/auditingSettings",
+            "name": "default",
+            "existenceCondition": {
+              "field": "Microsoft.Sql/auditingSettings.state",
+              "equals": "[parameters('setting')]"
+            },
+            "roleDefinitionIds": [
+              "/providers/microsoft.authorization/roleDefinitions/<your role definition>"
+            ],
+            "deployment": {
+              "properties": {
+                "mode": "incremental",
+                "template": {
+                  "$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+                  "contentVersion": "1.0.0.0",
+                  "parameters": {
+                    "serverName": {
+                      "type": "string"
+                    }
+                  },
+                  "variables": {
+                    "subscriptionId": "[subscription().subscriptionId]",
+                    "databaseServerName": "[toLower(parameters('serverName'))]",
+                    "Tenant": {
+                      "<tenant id 1>": {
+                        "WorkspaceName": "<>",
+                        "OMSResourceGroup": "<>",
+                        "EventhubResourceGroup": "<>",
+                        "EventHubNameSpace": "<>",
+                        "EventHubName": "<>",
+                        "EventHubKey": "<>"
+                      },
+                      "<tenant id 2>": {
+                        "WorkspaceName": "<>",
+                        "OMSResourceGroup": "<>",
+                        "EventhubResourceGroup": "<>",
+                        "EventHubNameSpace": "<>",
+                        "EventHubName": "<>",
+                        "EventHubKey": "<>"
+                      }
+                    },
+                    "diagnosticSettingsName": "['SQLSecurityAuditEvents_3d229c42-c7e7-4c97-9a99-ec0d0d8b86c1']",
+                    "auditActionsAndGroupsOnServerLevel": [
+                      "FAILED_DATABASE_AUTHENTICATION_GROUP",
+                      "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+                      "USER_CHANGE_PASSWORD_GROUP",
+                      "APPLICATION_ROLE_CHANGE_PASSWORD_GROUP",
+                      "DATABASE_OBJECT_CHANGE_GROUP",
+                      "SCHEMA_OBJECT_CHANGE_GROUP",
+                      "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+                      "DATABASE_PERMISSION_CHANGE_GROUP",
+                      "DATABASE_OBJECT_PERMISSION_CHANGE_GROUP",
+                      "SCHEMA_OBJECT_CHANGE_GROUP",
+                      "BACKUP_RESTORE_GROUP",
+                      "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+                      "DATABASE_ROLE_MEMBER_CHANGE_GROUP",
+                      "DATABASE_PRINCIPAL_CHANGE_GROUP",
+                      "SCHEMA_OBJECT_OWNERSHIP_CHANGE_GROUP",
+                      "DATABASE_PRINCIPAL_IMPERSONATION_GROUP"
+                    ]
+                  },
+                  "resources": [
+                    {
+                      "apiVersion": "2017-03-01-preview",
+                      "type": "Microsoft.Sql/servers/auditingSettings",
+                      "name": "[concat(variables('databaseServerName'),'/DefaultAuditingSettings')]",
+                      "properties": {
+                        "State": "Enabled",
+                        "auditActionsAndGroups": "[variables('auditActionsAndGroupsOnServerLevel')]",
+                        "isAzureMonitorTargetEnabled": true
+                      }
+                    },
+                    {
+                      "type": "Microsoft.Sql/servers/databases/providers/diagnosticSettings",
+                      "name": "[concat(variables('databaseServerName'), '/master/', 'microsoft.insights/',variables('diagnosticSettingsName'))]",
+                      "apiVersion": "2017-05-01-preview",
+                      "properties": {
+                        "name": "[concat(variables('databaseServerName'),'Siem')]",
+                        "eventHubAuthorizationRuleId": "[resourceId(variables('Tenant')[subscription().TenantId]['EventhubResourceGroup'],'Microsoft.EventHub/namespaces/authorizationrules',variables('Tenant')[subscription().TenantId]['EventHubNameSpace'],variables('Tenant')[subscription().TenantId]['EventHubKey'])]",
+                        "workspaceId": "[resourceId(variables('Tenant')[subscription().TenantId]['OMSResourceGroup'],'microsoft.operationalinsights/workspaces/',variables('Tenant')[subscription().TenantId]['WorkspaceName'])]",
+                        "eventHubName": "[variables('Tenant')[subscription().TenantId]['EventHubName']]",
+                        "logs": [
+                          {
+                            "category": "SQLSecurityAuditEvents",
+                            "name": "AuditToLogAnalytics",
+                            "enabled": true,
+                            "retentionPolicy": {
+                              "days": 0,
+                              "enabled": false
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "parameters": {
+                  "serverName": {
+                    "value": "[field('name')]"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "id": "/subscriptions/<subid>/providers/Microsoft.Authorization/policyDefinitions/<policyid>",
+    "type": "Microsoft.Authorization/policyDefinitions",
+    "name": "<policyname>"
+  }
